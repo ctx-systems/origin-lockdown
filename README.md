@@ -137,7 +137,7 @@ nginx -t && systemctl reload nginx
 | Cloudflare | `CF-Connecting-IP` |
 | bunny.net | `X-Forwarded-For` (or `X-Real-IP`) |
 | Fastly | `Fastly-Client-IP` |
-| CloudFront | `CloudFront-Viewer-Address` (needs an origin request policy) or `X-Forwarded-For` |
+| CloudFront | `CloudFront-Viewer-Address` (add it via an origin request policy) or `X-Forwarded-For` |
 | QUIC.cloud | `X-Forwarded-For` |
 | Sucuri | `X-Sucuri-ClientIP` |
 | LimesGuard | `X-Limes-Client-Ip` |
@@ -157,10 +157,10 @@ limit, so the big lists may need to be split up or summarised:
 
 | Provider | Where | Notes |
 |---|---|---|
-| Hetzner Cloud | Firewalls → inbound rules | One rule takes many source IPs. Fits Cloudflare easily; bunny.net CDN may hit per-firewall limits. |
-| DigitalOcean | Networking → Firewalls | Source limits apply per firewall. Check before importing bunny.net-sized lists. |
-| AWS | Security groups | Use the managed prefix list `com.amazonaws.global.cloudfront.origin-facing` instead of copying ranges. |
-| Vultr | Firewall groups | Also add panel IPs under *API Access Control* if a panel creates servers for you. |
+| Hetzner Cloud | Firewalls → *Rules* | Max 500 *effective* rules per firewall, where every source IP counts as one (one port with 8 sources = 8). Max 5 firewalls per server. Cloudflare (22 ranges) fits easily, bunny.net CDN (~900 IPs) doesn't, so filter bunny on the server. Stateful. |
+| DigitalOcean | Networking → Firewalls → *Rules* | Max 50 rules per firewall, 1,000 sources per rule, 10 Droplets and 5 tags per firewall. **No inbound rules means no inbound traffic.** |
+| AWS | Security groups | Use the managed prefix lists `com.amazonaws.global.cloudfront.origin-facing` / `com.amazonaws.global.ipv6.cloudfront.origin-facing` instead of copying ranges. They count as 55 rules against the default 60-rule quota. |
+| Vultr | Network → Firewall (firewall groups) | The instance's own firewall must allow the traffic too. Also add panel IPs under *API Access Control* if a panel creates servers for you. |
 
 ### Stronger than IP lists
 
@@ -195,8 +195,13 @@ KbdInteractiveAuthentication no
 PermitRootLogin prohibit-password
 ```
 
-Then `sshd -t && systemctl reload ssh`. Test from a **second** terminal before you close the
-first. Add fail2ban or CrowdSec if port 22 stays public in any form.
+Then `sshd -t && systemctl reload ssh` (the unit is `ssh` on Debian/Ubuntu, `sshd` on RHEL-likes).
+Test from a **second** terminal before you close the first. Add fail2ban or CrowdSec if port 22
+stays public in any form.
+
+Why `10-`: sshd uses the *first* value it reads for each option, and drop-ins load in lexical
+order. So `10-lockdown.conf` beats the `PasswordAuthentication yes` that cloud images often ship
+in `50-cloud-init.conf`. Confirm with `sshd -T | grep -i passwordauth`.
 
 > **Using a panel?** SpinupWP, Ploi, GridPane, Forge and RunCloud SSH in over the public
 > address, so keep allowing their IPs (see [Server panels](#server-panels-ssh--agent-access)) on
@@ -217,11 +222,11 @@ So put the "only my IP" rule in your **provider's network firewall**, not on the
 
 | Provider | Where |
 |---|---|
-| Hetzner Cloud | Firewalls → *Inbound* → TCP 22, source = your IP (+ panel IPs) → apply to servers or a label |
-| DigitalOcean | Networking → Firewalls → *Inbound Rules* → SSH, sources = your IP (+ panel IPs) |
-| Vultr | Network → Firewall → firewall group → SSH rule with your subnet |
+| Hetzner Cloud | Firewalls → your firewall → *Rules* → inbound TCP 22, source = your IP (+ panel IPs). Then *Resources* → *Apply to* a server or a label |
+| DigitalOcean | Networking → Firewalls → your firewall → *Rules* → *Add inbound rule* → `SSH` preset, sources = your IP (+ panel IPs). Then add Droplets by name or tag |
+| Vultr | Network → Firewall → your group → IPv4 (and IPv6) → protocol `SSH`, source = your IP → *Add Firewall Rule*. Then *Linked Instances* → add the server |
 | AWS | Security group → inbound rule TCP 22 from `your-ip/32` |
-| OVHcloud / Scaleway | Edge Network Firewall / Security groups → same idea |
+| Others | Look for *Firewall* or *Security groups* in the control panel. Most providers have one |
 
 Find your IP with `curl -4 ifconfig.me` (and `curl -6 ifconfig.me` if you have IPv6). Add
 your panel's IPs to the same rule if you use one. Leave `ufw` allowing 22 normally (or skip
@@ -232,7 +237,7 @@ home IP doesn't matter at all.
 
 #### Tailscale
 
-[Tailscale](https://tailscale.com/kb/1017/install) builds a private WireGuard network between your
+[Tailscale](https://tailscale.com/docs/install/linux) builds a private WireGuard network between your
 devices and servers. It works behind NAT without opening any inbound port, and your home IP can
 change freely.
 
@@ -247,11 +252,12 @@ ufw delete allow OpenSSH 2>/dev/null; ufw delete allow 22/tcp 2>/dev/null
 
 Then connect with `ssh user@<server-tailscale-name>` or its `100.x.y.z` address. Optional extras:
 
-- `tailscale up --ssh` enables [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh): login
-  is granted by your tailnet ACLs instead of `authorized_keys`.
-- Use [ACLs / grants](https://tailscale.com/kb/1018/acls) so only admins can reach port 22 on servers.
-- Turn off [key expiry](https://tailscale.com/kb/1028/key-expiry) for servers, or they drop off the
-  tailnet when the key expires.
+- `tailscale set --ssh` enables [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh):
+  tailscaled takes over port 22 on the Tailscale IP and grants logins via your tailnet policy instead
+  of `authorized_keys`. Your normal sshd keeps working on the other addresses.
+- Use [ACLs / grants](https://tailscale.com/docs/features/access-control/acls) so only admins can reach port 22 on servers.
+- Turn off [key expiry](https://tailscale.com/docs/features/access-control/key-expiry) for servers
+  (default 180 days), or they drop off the tailnet when the key expires.
 - To avoid a third-party control plane, [Headscale](https://github.com/juanfont/headscale) is a
   self-hosted alternative.
 
@@ -264,6 +270,7 @@ On the server:
 
 ```bash
 apt install wireguard
+umask 077
 wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub
 chmod 600 /etc/wireguard/server.key
 
@@ -305,8 +312,9 @@ the same range, or use Tailscale/Headscale so you don't have to manage keys by h
 
 - Add the new allow rule **before** removing the old one, and keep an existing SSH session open
   while you test.
-- Know where your provider's web console / rescue system is (Hetzner Console, DigitalOcean
-  Droplet Console, …). It works even when the firewall drops everything.
+- Know where your provider's web console / rescue system is (Hetzner Cloud's web console,
+  DigitalOcean's VNC-based *Recovery Console*, …). These work like a keyboard and screen on the
+  machine, so they don't depend on the network firewall.
 - If you use a tunnel, make sure it starts on boot (`systemctl is-enabled tailscaled` / `wg-quick@wg0`).
 
 ---
@@ -354,10 +362,10 @@ Source: <https://www.cloudflare.com/ips/> · Machine-readable: `https://www.clou
 </details>
 
 Notes: Cloudflare only proxies the [supported ports](https://developers.cloudflare.com/fundamentals/reference/network-ports/)
-(80, 443, 8080, 8443, 2053, …), so SSH and other ports still need their own rules. Use
+(HTTP: 80, 8080, 8880, 2052, 2082, 2086, 2095; HTTPS: 443, 2053, 2083, 2087, 2096, 8443), so SSH and other ports still need their own rules. Use
 `CF-Connecting-IP` for the real IP. For stronger origin protection see
 [Authenticated Origin Pulls](https://developers.cloudflare.com/ssl/origin-configuration/authenticated-origin-pull/)
-and [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
+and [Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/).
 
 ### bunny.net
 
@@ -441,8 +449,9 @@ Source: <https://quic.cloud/ips> · Machine-readable: `https://quic.cloud/ips?js
 ### Sucuri
 
 Sucuri doesn't publish a single range list. The addresses that connect to your origin are
-shown per site in the Sucuri dashboard under *Firewall → Settings → Firewall Bypass*. Copy
-those into your own list file, and verify `X-Sucuri-ClientIP` only when the TCP peer is one of them.
+shown per site in your Sucuri dashboard (see Sucuri's
+[Prevent Sucuri Firewall Bypass](https://docs.sucuri.net/website-firewall/configuration/prevent-sucuri-firewall-bypass/)).
+Copy those into your own list file, and verify `X-Sucuri-ClientIP` only when the TCP peer is one of them.
 
 ---
 

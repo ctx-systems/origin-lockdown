@@ -157,7 +157,7 @@ limit, so the big lists may need to be split up or summarised:
 
 | Provider | Where | Notes |
 |---|---|---|
-| Hetzner Cloud | Firewalls → *Rules* | Max 500 *effective* rules per firewall, where every source IP counts as one (one port with 8 sources = 8). Max 5 firewalls per server. Cloudflare (22 ranges) fits easily, bunny.net CDN (~900 IPs) doesn't, so filter bunny on the server. Stateful. |
+| Hetzner Cloud | Firewalls → *Create Firewall* (or open an existing one) | Max 500 *effective* rules per firewall, where every source IP counts as one (one port with 8 sources = 8). Max 5 firewalls per server. Cloudflare (22 ranges) fits easily, bunny.net CDN (~900 IPs) doesn't, so filter bunny on the server. Stateful. |
 | DigitalOcean | Networking → Firewalls → *Rules* | Max 50 rules per firewall, 1,000 sources per rule, 10 Droplets and 5 tags per firewall. **No inbound rules means no inbound traffic.** |
 | AWS | Security groups | Use the managed prefix lists `com.amazonaws.global.cloudfront.origin-facing` / `com.amazonaws.global.ipv6.cloudfront.origin-facing` instead of copying ranges. They count as 55 rules against the default 60-rule quota. |
 | Vultr | Network → Firewall (firewall groups) | The instance's own firewall must allow the traffic too. Also add panel IPs under *API Access Control* if a panel creates servers for you. |
@@ -222,7 +222,7 @@ So put the "only my IP" rule in your **provider's network firewall**, not on the
 
 | Provider | Where |
 |---|---|
-| Hetzner Cloud | Firewalls → your firewall → *Rules* → inbound TCP 22, source = your IP (+ panel IPs). Then *Resources* → *Apply to* a server or a label |
+| Hetzner Cloud | Firewalls → *Create Firewall* (or open an existing one) → inbound rule TCP 22, source = your IP (+ panel IPs). Apply it to a server or a label (on an existing firewall: *Resources* → *Apply to*) |
 | DigitalOcean | Networking → Firewalls → your firewall → *Rules* → *Add inbound rule* → `SSH` preset, sources = your IP (+ panel IPs). Then add Droplets by name or tag |
 | Vultr | Network → Firewall → your group → IPv4 (and IPv6) → protocol `SSH`, source = your IP → *Add Firewall Rule*. Then *Linked Instances* → add the server |
 | AWS | Security group → inbound rule TCP 22 from `your-ip/32` |
@@ -426,7 +426,16 @@ means swapping one IP list for another and changing the header you check.
 Machine-readable: `https://api.fastly.com/public-ip-list` (JSON: `addresses` and `ipv6_addresses`)
 · Files: [`ips/fastly-v4.txt`](ips/fastly-v4.txt) (21), [`ips/fastly-v6.txt`](ips/fastly-v6.txt) (3)
 
-Real IP header: `Fastly-Client-IP`.
+Real IP header: [`Fastly-Client-IP`](https://www.fastly.com/documentation/reference/http/http-headers/Fastly-Client-IP).
+
+> **Spoofable by default.** Fastly uses a `Fastly-Client-IP` value the client sends itself, so
+> overwrite it in `vcl_recv` before you trust it:
+>
+> ```vcl
+> if (fastly.ff.visits_this_service == 0 && req.restarts == 0) {
+>   set req.http.Fastly-Client-IP = client.ip;
+> }
+> ```
 
 ### Amazon CloudFront
 

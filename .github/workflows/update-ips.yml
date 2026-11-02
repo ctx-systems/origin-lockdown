@@ -1,0 +1,32 @@
+name: Update IP lists
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch lists
+        run: python3 scripts/update_ips.py
+      - name: Open PR if anything changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: auto/update-ips
+          commit-message: "Update IP lists"
+          title: "Update IP lists"
+          body: |
+            Automated refresh by `scripts/update_ips.py`. Review the diff before merging.
+            Manual providers aren't covered. See UPDATE_PROMPT.md.
+          add-paths: ips/
+          delete-branch: true

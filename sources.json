@@ -1,0 +1,172 @@
+{
+  "$comment": "Registry of every provider in this repo. method=fetch is refreshed by scripts/update_ips.py; method=manual must be refreshed by reading doc_url (see UPDATE_PROMPT.md).",
+  "providers": [
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "kind": "proxy",
+      "doc_url": "https://www.cloudflare.com/ips/",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://www.cloudflare.com/ips-v4",
+          "format": "text",
+          "family": "v4"
+        },
+        {
+          "url": "https://www.cloudflare.com/ips-v6",
+          "format": "text",
+          "family": "v6"
+        }
+      ]
+    },
+    {
+      "id": "bunny-cdn",
+      "name": "bunny.net CDN (edge servers)",
+      "kind": "proxy",
+      "doc_url": "https://bunny.net/docs/cdn/connectivity",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://bunnycdn.com/api/system/edgeserverlist/plain",
+          "format": "text",
+          "family": "v4"
+        },
+        {
+          "url": "https://bunnycdn.com/api/system/edgeserverlist/ipv6",
+          "format": "json-array",
+          "family": "v6"
+        }
+      ]
+    },
+    {
+      "id": "bunny-magic-containers",
+      "name": "bunny.net Magic Containers (nodes)",
+      "kind": "proxy",
+      "doc_url": "https://bunny.net/docs/magic-containers/ip-addresses",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://api.bunny.net/mc/nodes/plain",
+          "format": "text",
+          "family": "auto"
+        }
+      ]
+    },
+    {
+      "id": "fastly",
+      "name": "Fastly",
+      "kind": "proxy",
+      "doc_url": "https://api.fastly.com/public-ip-list",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://api.fastly.com/public-ip-list",
+          "format": "json-keys",
+          "keys": {
+            "addresses": "v4",
+            "ipv6_addresses": "v6"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloudfront",
+      "name": "Amazon CloudFront (origin-facing)",
+      "kind": "proxy",
+      "doc_url": "https://docs.aws.amazon.com/vpc/latest/userguide/aws-ip-ranges.html",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://ip-ranges.amazonaws.com/ip-ranges.json",
+          "format": "aws",
+          "service": "CLOUDFRONT_ORIGIN_FACING"
+        }
+      ]
+    },
+    {
+      "id": "quic-cloud",
+      "name": "QUIC.cloud",
+      "kind": "proxy",
+      "doc_url": "https://quic.cloud/ips",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://quic.cloud/ips?json",
+          "format": "json-array",
+          "family": "auto"
+        }
+      ]
+    },
+    {
+      "id": "limesguard",
+      "name": "LimesGuard",
+      "kind": "proxy",
+      "doc_url": "https://limesguard.eu",
+      "method": "pending",
+      "endpoints": []
+    },
+    {
+      "id": "spinupwp",
+      "name": "SpinupWP",
+      "kind": "panel",
+      "doc_url": "https://spinupwp.com/doc/whitelisting-ip-addresses/",
+      "method": "manual",
+      "ports": [
+        "22/tcp"
+      ]
+    },
+    {
+      "id": "ploi",
+      "name": "Ploi",
+      "kind": "panel",
+      "doc_url": "https://ploi.io/documentation/introduction/ploi-ip-for-whitelisting",
+      "method": "manual",
+      "ports": [
+        "22/tcp"
+      ],
+      "note": "Worker IPs are only shown when logged in to ploi.io; the public file lists the uptime-monitor IPs only.",
+      "files": [
+        "ips/ploi-uptime-v4.txt",
+        "ips/ploi-uptime-v6.txt"
+      ]
+    },
+    {
+      "id": "gridpane",
+      "name": "GridPane",
+      "kind": "panel",
+      "doc_url": "https://gridpane.com/kb/whitelisting-gridpane-at-your-server-providers/",
+      "method": "manual",
+      "ports": [
+        "22/tcp"
+      ]
+    },
+    {
+      "id": "forge",
+      "name": "Laravel Forge",
+      "kind": "panel",
+      "doc_url": "https://laravel.com/forge/docs/introduction#laravel-forge-ip-addresses",
+      "method": "fetch",
+      "ports": [
+        "22/tcp"
+      ],
+      "endpoints": [
+        {
+          "url": "https://forge.laravel.com/ips-v4.txt",
+          "format": "text",
+          "family": "v4"
+        }
+      ]
+    },
+    {
+      "id": "runcloud",
+      "name": "RunCloud",
+      "kind": "panel",
+      "doc_url": "https://runcloud.io/docs/whitelist-runcloud-ip-addresses",
+      "method": "manual",
+      "ports": [
+        "34210/tcp"
+      ]
+    }
+  ]
+}

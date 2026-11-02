@@ -264,6 +264,20 @@ console → your site → *Origin key*). Check that header on the server as well
 the IPs above. The site page in the console runs an origin lockdown check for you. Limes announces
 address changes in advance.
 
+#### What can I do now, before LimesGuard is widely available?
+
+LimesGuard is still rolling out. In the meantime, you can protect your site today with:
+
+- **[Cloudflare](#cloudflare)**: the free plan already includes a proxy, DDoS protection and a basic WAF.
+  Lock your server to [the Cloudflare ranges](#cloudflare). For the strongest setup, add
+  Authenticated Origin Pulls or use a Cloudflare Tunnel.
+- **[bunny.net](#bunnynet) with Bunny Shield**: an EU-based CDN with a WAF, rate limiting and DDoS
+  protection on top of a Pull Zone. Lock your server to [the bunny.net edge list](#bunnynet) and add
+  a secret header via an Edge Rule.
+
+Whichever you choose, the lockdown steps in this repo stay the same. Moving to LimesGuard later
+means swapping one IP list for another and changing the header you check.
+
 ### Fastly
 
 Machine-readable: `https://api.fastly.com/public-ip-list` (JSON: `addresses` and `ipv6_addresses`)

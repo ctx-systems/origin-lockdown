@@ -77,7 +77,7 @@ cd /opt/origin-lockdown
 
 ```bash
 # 1. yourself first
-ufw allow from 203.0.113.10 to any port 22 proto tcp comment 'me'
+ufw allow from 203.0.113.10 to any port 22 proto tcp comment 'me'   # or: ufw allow 22/tcp, and restrict SSH in the provider firewall (see SSH lockdown)
 
 # 2. your panel (example: SpinupWP)
 scripts/ufw-allow.sh --ports 22 --apply ips/spinupwp-v4.txt ips/spinupwp-v6.txt
@@ -182,7 +182,7 @@ password or leaked key away from a full compromise. Pick one of these, from simp
 
 | Option | Good when | Public port 22? |
 |---|---|---|
-| Allow only your IP | You have a static IP (office, fixed-line ISP) | Open to your IP + panel IPs |
+| Allow only your IP (provider firewall) | You have a fairly static IP and can edit the rule from the dashboard | Open to your IP + panel IPs |
 | Tailscale | Your IP changes, you have several people or servers | Closed (except panel IPs) |
 | WireGuard | You want no third party involved | Closed, only UDP 51820 open |
 | Bastion / jump host | Many servers, one audited entry point | Open to the bastion only |
@@ -202,16 +202,33 @@ first. Add fail2ban or CrowdSec if port 22 stays public in any form.
 > address, so keep allowing their IPs (see [Server panels](#server-panels-ssh--agent-access)) on
 > top of whichever option you choose.
 
-#### Allow only your IP
+#### Allow only your IP (do it in the provider's firewall)
 
-```bash
-ufw allow from 203.0.113.10 to any port 22 proto tcp comment 'me'
-ufw delete allow OpenSSH 2>/dev/null; ufw delete allow 22/tcp 2>/dev/null
-```
+This is the easiest way to lock yourself out. Home and mobile IPs change, and so does your IP
+on a hotel or café network. If the rule lives in `ufw` on the server, fixing it means a rescue
+console or rescue boot.
 
-Find your IP with `curl -4 ifconfig.me` (and `curl -6 ifconfig.me` if you have IPv6). If it
-changes, you're locked out until you fix the rule from your provider's console. Set the same
-rule in the [cloud firewall](#cloud-firewalls) as a safety net.
+So put the "only my IP" rule in your **provider's network firewall**, not on the server:
+
+- When your IP changes, open the provider dashboard and edit one rule. No SSH needed, works
+  from any browser.
+- A broken `ufw`/`nftables` change on the server can't lock you out, and Docker can't bypass it.
+- One firewall can cover all your servers, so one edit updates them all.
+
+| Provider | Where |
+|---|---|
+| Hetzner Cloud | Firewalls → *Inbound* → TCP 22, source = your IP (+ panel IPs) → apply to servers or a label |
+| DigitalOcean | Networking → Firewalls → *Inbound Rules* → SSH, sources = your IP (+ panel IPs) |
+| Vultr | Network → Firewall → firewall group → SSH rule with your subnet |
+| AWS | Security group → inbound rule TCP 22 from `your-ip/32` |
+| OVHcloud / Scaleway | Edge Network Firewall / Security groups → same idea |
+
+Find your IP with `curl -4 ifconfig.me` (and `curl -6 ifconfig.me` if you have IPv6). Add
+your panel's IPs to the same rule if you use one. Leave `ufw` allowing 22 normally (or skip
+it for SSH entirely) so the provider firewall is the single place to update.
+
+Still worried about lockouts? Add [Tailscale](#tailscale) as a second way in. Then a changed
+home IP doesn't matter at all.
 
 #### Tailscale
 

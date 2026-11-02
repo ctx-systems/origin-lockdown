@@ -139,6 +139,7 @@ nginx -t && systemctl reload nginx
 | CloudFront | `CloudFront-Viewer-Address` (needs an origin request policy) or `X-Forwarded-For` |
 | QUIC.cloud | `X-Forwarded-For` |
 | Sucuri | `X-Sucuri-ClientIP` |
+| LimesGuard | `X-Limes-Client-Ip` |
 
 If you can't touch the firewall (shared hosting, some managed panels), add `--allow-only`.
 The script then also prints a `geo` block, and `return 444` drops non-proxy requests at
@@ -247,10 +248,21 @@ via an Edge Rule. You can also limit which IP family a zone uses with
 
 ### LimesGuard
 
-European web shield by [ctx-systems](https://github.com/ctx-systems). Site: <https://limesguard.eu>
+European web shield by [ctx-systems](https://github.com/ctx-systems), running on EU infrastructure.
 
-> 🚧 **IP ranges coming soon.** A public page with LimesGuard's edge ranges is being prepared.
-> Once it is live it will be added to `sources.json` and refreshed automatically like the others.
+Source: <https://limesguard.eu/docs/lock-your-server> · Machine-readable:
+`https://limesguard.eu/api/pub/edge-info` (JSON: `egress_ips`, plus `edge_hostname` to point DNS at)
+· Files: [`ips/limesguard-v4.txt`](ips/limesguard-v4.txt), [`ips/limesguard-v6.txt`](ips/limesguard-v6.txt)
+
+```
+178.104.30.200
+2a01:4f8:1c19:865d::1
+```
+
+Notes: every request Limes forwards carries `X-Limes-Origin-Key` with your site's key (see the
+console → your site → *Origin key*). Check that header on the server as well as firewalling to
+the IPs above. The site page in the console runs an origin lockdown check for you. Limes announces
+address changes in advance.
 
 ### Fastly
 

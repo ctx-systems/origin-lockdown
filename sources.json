@@ -102,9 +102,17 @@
       "id": "limesguard",
       "name": "LimesGuard",
       "kind": "proxy",
-      "doc_url": "https://limesguard.eu",
-      "method": "pending",
-      "endpoints": []
+      "doc_url": "https://limesguard.eu/docs/lock-your-server",
+      "method": "fetch",
+      "endpoints": [
+        {
+          "url": "https://limesguard.eu/api/pub/edge-info",
+          "format": "json-keys",
+          "keys": {
+            "egress_ips": "auto"
+          }
+        }
+      ]
     },
     {
       "id": "spinupwp",

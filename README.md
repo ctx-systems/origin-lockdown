@@ -30,6 +30,7 @@ This repo collects:
   - [nginx (real IP + allow-only)](#nginx-real-ip--allow-only)
   - [Cloud firewalls](#cloud-firewalls)
   - [Stronger than IP lists](#stronger-than-ip-lists)
+  - [SSH lockdown](#ssh-lockdown) (your IP only, Tailscale, WireGuard)
 - [Proxies & web shields](#proxies--web-shields)
   - [Cloudflare](#cloudflare) · [bunny.net](#bunnynet) · [LimesGuard](#limesguard) ·
     [Fastly](#fastly) · [Amazon CloudFront](#amazon-cloudfront) · [QUIC.cloud](#quiccloud) ·
@@ -47,7 +48,7 @@ This repo collects:
 | Port | Who may connect | Lists |
 |---|---|---|
 | `80`, `443` | Your proxy / CDN only | `ips/<proxy>-v4.txt`, `-v6.txt` |
-| `22` (or your SSH port) | You (office/VPN/bastion) + your control panel | `ips/<panel>-*.txt` |
+| `22` (or your SSH port) | You (your IP, or only over Tailscale/WireGuard, see [SSH lockdown](#ssh-lockdown)) + your control panel | `ips/<panel>-*.txt` |
 | Panel agent ports (e.g. RunCloud `34210`) | That panel only | `ips/<panel>-*.txt` |
 | Everything else | Nobody | — |
 
@@ -173,6 +174,123 @@ gap, also do one of these:
   (`ssl_verify_client on`).
 - **No public ingress**: Cloudflare Tunnel (`cloudflared`) or a similar tunnel. The origin opens an
   outbound connection, so you can close 80/443 entirely.
+
+### SSH lockdown
+
+Port 22 open to the world means a constant stream of brute-force attempts, and one weak
+password or leaked key away from a full compromise. Pick one of these, from simplest to strongest:
+
+| Option | Good when | Public port 22? |
+|---|---|---|
+| Allow only your IP | You have a static IP (office, fixed-line ISP) | Open to your IP + panel IPs |
+| Tailscale | Your IP changes, you have several people or servers | Closed (except panel IPs) |
+| WireGuard | You want no third party involved | Closed, only UDP 51820 open |
+| Bastion / jump host | Many servers, one audited entry point | Open to the bastion only |
+
+Whatever you pick, **harden sshd too**. In `/etc/ssh/sshd_config.d/10-lockdown.conf`:
+
+```
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+```
+
+Then `sshd -t && systemctl reload ssh`. Test from a **second** terminal before you close the
+first. Add fail2ban or CrowdSec if port 22 stays public in any form.
+
+> **Using a panel?** SpinupWP, Ploi, GridPane, Forge and RunCloud SSH in over the public
+> address, so keep allowing their IPs (see [Server panels](#server-panels-ssh--agent-access)) on
+> top of whichever option you choose.
+
+#### Allow only your IP
+
+```bash
+ufw allow from 203.0.113.10 to any port 22 proto tcp comment 'me'
+ufw delete allow OpenSSH 2>/dev/null; ufw delete allow 22/tcp 2>/dev/null
+```
+
+Find your IP with `curl -4 ifconfig.me` (and `curl -6 ifconfig.me` if you have IPv6). If it
+changes, you're locked out until you fix the rule from your provider's console. Set the same
+rule in the [cloud firewall](#cloud-firewalls) as a safety net.
+
+#### Tailscale
+
+[Tailscale](https://tailscale.com/kb/1017/install) builds a private WireGuard network between your
+devices and servers. It works behind NAT without opening any inbound port, and your home IP can
+change freely.
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+tailscale up                       # log in with the printed URL
+
+# allow SSH only over the tailnet, then close it publicly
+ufw allow in on tailscale0 to any port 22 proto tcp comment 'ssh via tailscale'
+ufw delete allow OpenSSH 2>/dev/null; ufw delete allow 22/tcp 2>/dev/null
+```
+
+Then connect with `ssh user@<server-tailscale-name>` or its `100.x.y.z` address. Optional extras:
+
+- `tailscale up --ssh` enables [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh): login
+  is granted by your tailnet ACLs instead of `authorized_keys`.
+- Use [ACLs / grants](https://tailscale.com/kb/1018/acls) so only admins can reach port 22 on servers.
+- Turn off [key expiry](https://tailscale.com/kb/1028/key-expiry) for servers, or they drop off the
+  tailnet when the key expires.
+- To avoid a third-party control plane, [Headscale](https://github.com/juanfont/headscale) is a
+  self-hosted alternative.
+
+#### WireGuard
+
+Plain WireGuard, no account needed. One UDP port stays open, and WireGuard doesn't answer
+packets that aren't from a known key, so to a scanner the port looks closed.
+
+On the server:
+
+```bash
+apt install wireguard
+wg genkey | tee /etc/wireguard/server.key | wg pubkey > /etc/wireguard/server.pub
+chmod 600 /etc/wireguard/server.key
+
+cat > /etc/wireguard/wg0.conf <<EOF
+[Interface]
+Address    = 10.66.0.1/24
+ListenPort = 51820
+PrivateKey = $(cat /etc/wireguard/server.key)
+
+[Peer]   # your laptop
+PublicKey  = <laptop public key>
+AllowedIPs = 10.66.0.2/32
+EOF
+
+systemctl enable --now wg-quick@wg0
+ufw allow 51820/udp comment 'wireguard'
+ufw allow in on wg0 to any port 22 proto tcp comment 'ssh via wireguard'
+ufw delete allow OpenSSH 2>/dev/null; ufw delete allow 22/tcp 2>/dev/null
+```
+
+On your laptop (`wg-quick up ./server.conf`, or import it in the WireGuard app):
+
+```ini
+[Interface]
+Address    = 10.66.0.2/32
+PrivateKey = <laptop private key>
+
+[Peer]
+PublicKey  = <server public key>
+Endpoint   = <server public ip>:51820
+AllowedIPs = 10.66.0.1/32         # only the server, not all your traffic
+PersistentKeepalive = 25
+```
+
+Then `ssh user@10.66.0.1`. With more than a couple of servers, give each its own address in
+the same range, or use Tailscale/Headscale so you don't have to manage keys by hand.
+
+#### Don't lock yourself out
+
+- Add the new allow rule **before** removing the old one, and keep an existing SSH session open
+  while you test.
+- Know where your provider's web console / rescue system is (Hetzner Console, DigitalOcean
+  Droplet Console, …). It works even when the firewall drops everything.
+- If you use a tunnel, make sure it starts on boot (`systemctl is-enabled tailscaled` / `wg-quick@wg0`).
 
 ---
 

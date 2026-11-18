@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   update:
@@ -30,3 +31,22 @@ jobs:
             Manual providers aren't covered. See UPDATE_PROMPT.md.
           add-paths: ips/
           delete-branch: true
+      - name: Check manual providers against their doc pages
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python3 scripts/check_manual.py > report.md; then
+            cat report.md
+            exit 0
+          fi
+          cat report.md
+          title="Manual IP lists differ from provider docs"
+          body="$(printf '%s\n\n%s\n\nUpdate the lists by hand (see UPDATE_PROMPT.md). Scraped from HTML, so double-check against the page.' \
+            "\`scripts/check_manual.py\` found differences:" "$(sed -n '/^###/,$p' report.md)")"
+          num=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$num" ]; then
+            gh issue edit "$num" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

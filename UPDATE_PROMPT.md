@@ -13,7 +13,8 @@ real users out of a website or let attackers bypass a firewall.
    open that provider's `doc_url` from `sources.json` and check whether the endpoint moved.
    Fix `sources.json` and re-run. Never hand-edit files of `method: "fetch"` providers.
 
-2. **Manual providers** (`method: "manual"` in `sources.json`). For each:
+2. **Manual providers** (`method: "manual"` in `sources.json`). `python3 scripts/check_manual.py`
+   shows which pages differ from the lists, but it scrapes HTML, so confirm on the page. For each:
    - Open `doc_url` (try appending `.md`, many doc sites serve Markdown).
    - Extract the IPv4 and IPv6 addresses the provider says to allow. Note any port changes.
    - Rewrite `ips/<id>-v4.txt` / `ips/<id>-v6.txt` (one entry per line, no comments) and the
@@ -27,8 +28,7 @@ real users out of a website or let attackers bypass a firewall.
    provider site now publishes ranges. If it does, add endpoints, switch to `fetch` and
    replace the "coming soon" note in the README.
 
-4. **README.** Update the entry counts in the provider sections (`(585)` etc.) and the
-   inline Cloudflare lists, and set "Last verified" at the top to today's date.
+4. **README.** Update the inline Cloudflare lists if they changed.
 
 5. **Sanity checks before committing:**
    - `python3 -c "import ipaddress,sys; [ipaddress.ip_network(l.strip(), strict=False) for f in sys.argv[1:] for l in open(f) if l.strip()]" ips/*.txt`

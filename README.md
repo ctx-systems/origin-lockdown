@@ -11,11 +11,11 @@ pay for.
 This repo collects:
 
 - **IP ranges** for proxies/CDNs and for server-control panels, as plain text files in
-  [`ips/`](ips/). A script and a weekly GitHub Action keep them up to date.
+  [`ips/`](ips/). A script and a daily GitHub Action keep them up to date.
 - **Instructions** for locking down an origin with `ufw`, `nftables`, nginx, and cloud
   firewalls, plus provider-specific notes.
 
-> Last verified: **2026-11-02**. Fetched lists are refreshed automatically (see
+> Fetched lists are refreshed automatically (see
 > [Keeping lists up to date](#keeping-lists-up-to-date)). Lists marked *manual* are
 > copied from a doc page, so check the linked source before you rely on them.
 
@@ -375,14 +375,14 @@ Source: <https://bunny.net/docs/cdn/connectivity> · Machine-readable:
 `https://bunnycdn.com/api/system/edgeserverlist/plain` (IPv4, text),
 `https://bunnycdn.com/api/system/edgeserverlist` (IPv4, JSON),
 `https://bunnycdn.com/api/system/edgeserverlist/ipv6` (IPv6, JSON)
-· Files: [`ips/bunny-cdn-v4.txt`](ips/bunny-cdn-v4.txt) (585), [`ips/bunny-cdn-v6.txt`](ips/bunny-cdn-v6.txt) (321)
+· Files: [`ips/bunny-cdn-v4.txt`](ips/bunny-cdn-v4.txt), [`ips/bunny-cdn-v6.txt`](ips/bunny-cdn-v6.txt)
 
 **Magic Containers nodes** (outbound IPs of containers you run on bunny.net, e.g. to allow
 them into your database)
 
 Source: <https://bunny.net/docs/magic-containers/ip-addresses> · Machine-readable:
 `https://api.bunny.net/mc/nodes/plain` (text), `https://api.bunny.net/mc/nodes` (JSON, paginated with `cursor`)
-· File: [`ips/bunny-magic-containers-v4.txt`](ips/bunny-magic-containers-v4.txt) (135)
+· File: [`ips/bunny-magic-containers-v4.txt`](ips/bunny-magic-containers-v4.txt)
 
 Notes: bunny.net lists individual edge IPs rather than ranges, and the list changes often
 (bunny calls it "dynamic"). Refresh at least daily, or use the secret-header approach
@@ -424,7 +424,7 @@ means swapping one IP list for another and changing the header you check.
 ### Fastly
 
 Machine-readable: `https://api.fastly.com/public-ip-list` (JSON: `addresses` and `ipv6_addresses`)
-· Files: [`ips/fastly-v4.txt`](ips/fastly-v4.txt) (21), [`ips/fastly-v6.txt`](ips/fastly-v6.txt) (3)
+· Files: [`ips/fastly-v4.txt`](ips/fastly-v4.txt), [`ips/fastly-v6.txt`](ips/fastly-v6.txt)
 
 Real IP header: [`Fastly-Client-IP`](https://www.fastly.com/documentation/reference/http/http-headers/Fastly-Client-IP).
 
@@ -441,7 +441,7 @@ Real IP header: [`Fastly-Client-IP`](https://www.fastly.com/documentation/refere
 
 Source: <https://docs.aws.amazon.com/vpc/latest/userguide/aws-ip-ranges.html> · Machine-readable:
 `https://ip-ranges.amazonaws.com/ip-ranges.json` filtered on `service == "CLOUDFRONT_ORIGIN_FACING"`
-· Files: [`ips/cloudfront-v4.txt`](ips/cloudfront-v4.txt) (49), [`ips/cloudfront-v6.txt`](ips/cloudfront-v6.txt) (38)
+· Files: [`ips/cloudfront-v4.txt`](ips/cloudfront-v4.txt), [`ips/cloudfront-v6.txt`](ips/cloudfront-v6.txt)
 
 On AWS, don't copy ranges. Reference the managed prefix lists
 `com.amazonaws.global.cloudfront.origin-facing` and `com.amazonaws.global.ipv6.cloudfront.origin-facing`
@@ -453,7 +453,7 @@ includes viewer-facing edges, which is far too broad. Use `CLOUDFRONT_ORIGIN_FAC
 The LiteSpeed CDN, popular with WordPress sites running LiteSpeed Cache.
 
 Source: <https://quic.cloud/ips> · Machine-readable: `https://quic.cloud/ips?json`
-· File: [`ips/quic-cloud-v4.txt`](ips/quic-cloud-v4.txt) (152)
+· File: [`ips/quic-cloud-v4.txt`](ips/quic-cloud-v4.txt)
 
 ### Sucuri
 
@@ -580,7 +580,9 @@ python3 scripts/update_ips.py cloudflare # just one
   when anything changes.
 
 Lists marked *manual* (SpinupWP, GridPane, RunCloud, Ploi uptime) have no machine-readable
-source. An agent or human refreshes them by following [`UPDATE_PROMPT.md`](UPDATE_PROMPT.md).
+source. The same workflow runs [`scripts/check_manual.py`](scripts/check_manual.py), which scrapes
+each doc page and opens an issue when the IPs shown there differ from the list. It never edits
+lists itself: an agent or human updates them by following [`UPDATE_PROMPT.md`](UPDATE_PROMPT.md).
 
 On your servers, pull and re-apply on a timer, for example:
 

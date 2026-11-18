@@ -580,7 +580,9 @@ python3 scripts/update_ips.py cloudflare # just one
   when anything changes.
 
 Lists marked *manual* (SpinupWP, GridPane, RunCloud, Ploi uptime) have no machine-readable
-source. An agent or human refreshes them by following [`UPDATE_PROMPT.md`](UPDATE_PROMPT.md).
+source. The same workflow runs [`scripts/check_manual.py`](scripts/check_manual.py), which scrapes
+each doc page and opens an issue when the IPs shown there differ from the list. It never edits
+lists itself: an agent or human updates them by following [`UPDATE_PROMPT.md`](UPDATE_PROMPT.md).
 
 On your servers, pull and re-apply on a timer, for example:
 

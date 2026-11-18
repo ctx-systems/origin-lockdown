@@ -13,7 +13,8 @@ real users out of a website or let attackers bypass a firewall.
    open that provider's `doc_url` from `sources.json` and check whether the endpoint moved.
    Fix `sources.json` and re-run. Never hand-edit files of `method: "fetch"` providers.
 
-2. **Manual providers** (`method: "manual"` in `sources.json`). For each:
+2. **Manual providers** (`method: "manual"` in `sources.json`). `python3 scripts/check_manual.py`
+   shows which pages differ from the lists, but it scrapes HTML, so confirm on the page. For each:
    - Open `doc_url` (try appending `.md`, many doc sites serve Markdown).
    - Extract the IPv4 and IPv6 addresses the provider says to allow. Note any port changes.
    - Rewrite `ips/<id>-v4.txt` / `ips/<id>-v6.txt` (one entry per line, no comments) and the

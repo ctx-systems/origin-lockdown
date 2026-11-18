@@ -27,8 +27,7 @@ real users out of a website or let attackers bypass a firewall.
    provider site now publishes ranges. If it does, add endpoints, switch to `fetch` and
    replace the "coming soon" note in the README.
 
-4. **README.** Update the entry counts in the provider sections (`(585)` etc.) and the
-   inline Cloudflare lists, and set "Last verified" at the top to today's date.
+4. **README.** Update the inline Cloudflare lists if they changed.
 
 5. **Sanity checks before committing:**
    - `python3 -c "import ipaddress,sys; [ipaddress.ip_network(l.strip(), strict=False) for f in sys.argv[1:] for l in open(f) if l.strip()]" ips/*.txt`
